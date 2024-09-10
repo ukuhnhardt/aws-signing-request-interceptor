@@ -40,7 +40,6 @@ public class AWSSigner {
     private static final String SHA_256 = "SHA-256";
     private static final String AWS4 = "AWS4";
     private static final String AWS_4_REQUEST = "aws4_request";
-//    private static final Joiner JOINER = .on(';');
     private static final String JOINER = ";";
     private static final String CONNECTION = "connection";
     private static final DateTimeFormatter BASIC_TIME_FORMAT = new DateTimeFormatterBuilder()
@@ -56,7 +55,6 @@ public class AWSSigner {
             .toFormatter();
     private static final String EMPTY = "";
     private static final String ZERO = "0";
-//    private static final Joiner AMPERSAND_JOINER = Joiner.on('&');
     private static final String AMPERSAND_JOINER = "&";
     private static final String HOST = "Host";
     private static final String CONTENT_LENGTH = "Content-Length";
@@ -111,7 +109,6 @@ public class AWSSigner {
         }
 
         final StringBuilder headersString = new StringBuilder();
-//        final ImmutableList.Builder<String> signedHeaders = ImmutableList.builder();
         final List<String> signedHeaders = new ArrayList<>();
 
         for (Map.Entry<String, Object> entry : result.entrySet()) {
@@ -142,7 +139,6 @@ public class AWSSigner {
     }
 
     private String queryParamsString(Map<String, List<String>> queryParams) {
-//        final ImmutableList.Builder<String> result = ImmutableList.builder();
         final List<String> result = new ArrayList<>();
         for (Map.Entry<String, List<String>> param : new TreeMap<>(queryParams).entrySet()) {
             for (String value : param.getValue()) {
@@ -150,7 +146,6 @@ public class AWSSigner {
             }
         }
 
-//        return AMPERSAND_JOINER.join(result.build());
         return result.stream().collect(Collectors.joining(AMPERSAND_JOINER));
     }
 

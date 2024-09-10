@@ -1,12 +1,5 @@
 package vc.inreach.aws.request;
 
-//import com.google.common.base.Function;
-
-//import com.google.common.base.Optional;
-//import com.google.common.base.Strings;
-//import com.google.common.base.Throwables;
-//import com.google.common.io.ByteStreams;
-
 import org.apache.http.*;
 import org.apache.http.client.methods.HttpRequestWrapper;
 import org.apache.http.message.BasicHeader;
@@ -22,8 +15,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class AWSSigningRequestInterceptor implements HttpRequestInterceptor {
-
-//    private static final Splitter SPLITTER = Splitter.on('&').trimResults().omitEmptyStrings();
 
     private static final Pattern SPLITTER = Pattern.compile("&");
     private final AWSSigner signer;
@@ -50,7 +41,6 @@ public class AWSSigningRequestInterceptor implements HttpRequestInterceptor {
         if (isNullOrEmpty(rawQuery))
             return Map.of();
 
-//        final Iterable<String> rawParams = SPLITTER.split(rawQuery);
         final Iterable<String> rawParams = SPLITTER.splitAsStream(rawQuery)
                 .filter(s -> !s.isBlank())
                 .collect(Collectors.toList());
@@ -59,7 +49,6 @@ public class AWSSigningRequestInterceptor implements HttpRequestInterceptor {
 
 
     private Map<String, List<String>> params(Iterable<String> rawParams) throws IOException {
-//        final ImmutableListMultimap.Builder<String, String> queryParams = ImmutableListMultimap.builder();
         final Map<String, List<String>> queryParams = new HashMap<>();
 
         for (String rawParam : rawParams) {
@@ -69,7 +58,6 @@ public class AWSSigningRequestInterceptor implements HttpRequestInterceptor {
                 if (index > 0) {
                     final String key = pair.substring(0, index);
                     final String value = pair.substring(index + 1);
-//                    queryParams.put(key, value);
                     queryParams.compute(key, new BiFunction<String, List<String>, List<String>>() {
                         @Override
                         public List<String> apply(String s, List<String> strings) {
@@ -93,7 +81,6 @@ public class AWSSigningRequestInterceptor implements HttpRequestInterceptor {
     }
 
     private Map<String, Object> headers(HttpRequest request) {
-//        final ImmutableMap.Builder<String, Object> headers = ImmutableMap.builder();
         if(request.getAllHeaders().length == 0) {
             return Map.of();
         }
@@ -122,7 +109,6 @@ public class AWSSigningRequestInterceptor implements HttpRequestInterceptor {
 
     private static final Function<HttpEntity, byte[]> TO_BYTE_ARRAY = entity -> {
         try {
-//            return ByteStreams.toByteArray(entity.getContent());
             return entity.getContent().readAllBytes();
         } catch (IOException e) {
             System.err.println(e.getMessage());
