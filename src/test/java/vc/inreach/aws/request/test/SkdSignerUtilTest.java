@@ -1,18 +1,15 @@
 package vc.inreach.aws.request.test;
+
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.internal.StaticCredentialsProvider;
-import com.google.common.base.Optional;
-import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Multimap;
 import org.junit.Test;
 
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
-import java.util.Map;
+import java.util.*;
+import java.util.function.Supplier;
 
 import static org.junit.Assert.assertEquals;
 
@@ -46,12 +43,11 @@ public class SkdSignerUtilTest {
         String host = "example.amazonaws.com";
         String uri = "/ሴ";
         String method = "GET";
-        Multimap<String, String> queryParams = ImmutableListMultimap.<String, String>builder()
-                .build();
-        Map<String, Object> headers = ImmutableMap.<String, Object>builder()
-                .put("Host", host)
-                .put("X-Amz-Date", date)
-                .build();
+        Map<String, String> queryParams = new HashMap<>();
+        Map<String, Object> headers = new HashMap<String, Object>() {{
+            put("Host", host);
+            put("X-Amz-Date", date);
+        }};
 
         // expected auth header as per test suite
         String expectedAuthorizationHeader = "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, SignedHeaders=host;x-amz-date, Signature=8318018e0b0f223aa2bbf98705b62bb787dc9c0e678f255a891fd03141be5d85";
@@ -103,14 +99,13 @@ public class SkdSignerUtilTest {
         String host = "example.amazonaws.com";
         String uri = "/";
         String method = "POST";
-        Multimap<String, String> queryParams = ImmutableListMultimap.<String, String>builder()
-                .put("Param1", "value1")
-                .build();
-        Map<String, Object> headers = ImmutableMap.<String, Object>builder()
-                .put("X-Amz-Date", date)
-                .put("Host", host)
-                .build();
-        Optional<byte[]> payload = Optional.absent();
+        Map<String, List<String>> queryParams = new HashMap<>();
+        queryParams.put("Param1", Collections.singletonList("value1"));
+
+        Map<String, Object> headers = new HashMap<>();
+        headers.put("X-Amz-Date", date);
+        headers.put("Host", host);
+        Optional<byte[]> payload = Optional.empty();
 
         // expected auth header as per test suite
         String expectedAuthorizationHeader = "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, SignedHeaders=host;x-amz-date, Signature=28038455d6de14eafc1f9222cf5aa6f1a96197d7deb8263271d420d138af7f11";
