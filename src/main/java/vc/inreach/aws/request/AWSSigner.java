@@ -4,32 +4,23 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.util.SdkHttpUtils;
-import com.google.common.base.*;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Multimap;
-import com.google.common.escape.Escaper;
-import com.google.common.net.UrlEscapers;
 import org.apache.commons.codec.binary.Hex;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
-import java.time.chrono.IsoChronology;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
-import java.time.format.ResolverStyle;
 import java.time.temporal.ChronoField;
-import java.util.Collection;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
-import static java.time.temporal.ChronoField.DAY_OF_MONTH;
-import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
-import static java.time.temporal.ChronoField.YEAR;
+import static java.time.temporal.ChronoField.*;
 
 /**
  * Inspired By: http://pokusak.blogspot.co.uk/2015/10/aws-elasticsearch-request-signing.html
@@ -49,7 +40,7 @@ public class AWSSigner {
     private static final String SHA_256 = "SHA-256";
     private static final String AWS4 = "AWS4";
     private static final String AWS_4_REQUEST = "aws4_request";
-    private static final Joiner JOINER = Joiner.on(';');
+    private static final String JOINER = ";";
     private static final String CONNECTION = "connection";
     private static final DateTimeFormatter BASIC_TIME_FORMAT = new DateTimeFormatterBuilder()
             .parseCaseInsensitive()
@@ -64,7 +55,7 @@ public class AWSSigner {
             .toFormatter();
     private static final String EMPTY = "";
     private static final String ZERO = "0";
-    private static final Joiner AMPERSAND_JOINER = Joiner.on('&');
+    private static final String AMPERSAND_JOINER = "&";
     private static final String HOST = "Host";
     private static final String CONTENT_LENGTH = "Content-Length";
     private static final String AUTHORIZATION = "Authorization";
@@ -97,16 +88,16 @@ public class AWSSigner {
 
     public Map<String, Object> getSignedHeaders(String uri,
                                                 String method,
-                                                Multimap<String, String> queryParams,
+                                                Map<String, List<String>> queryParams,
                                                 Map<String, Object> headers,
                                                 Optional<byte[]> payload) {
         final LocalDateTime now = clock.get();
         final AWSCredentials credentials = credentialsProvider.getCredentials();
         final Map<String, Object> result = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         result.putAll(headers);
-        final Optional<String> possibleHost = Optional.fromNullable(result.get(HOST))
-                .transform(Object::toString);
-        final int indexOfPortSymbol = possibleHost.transform(host -> host.indexOf(':')).or(-1);
+        final Optional<String> possibleHost = Optional.ofNullable(result.get(HOST))
+                .map(Object::toString);
+        final int indexOfPortSymbol = possibleHost.map(host -> host.indexOf(':')).orElse(-1);
         if (indexOfPortSymbol > -1) {
             result.put(HOST, possibleHost.get().substring(0, indexOfPortSymbol));
         }
@@ -118,7 +109,7 @@ public class AWSSigner {
         }
 
         final StringBuilder headersString = new StringBuilder();
-        final ImmutableList.Builder<String> signedHeaders = ImmutableList.builder();
+        final List<String> signedHeaders = new ArrayList<>();
 
         for (Map.Entry<String, Object> entry : result.entrySet()) {
             final Optional<String> headerAsString = headerAsString(entry, method);
@@ -128,13 +119,15 @@ public class AWSSigner {
             }
         }
 
-        final String signedHeaderKeys = JOINER.join(signedHeaders.build());
+        final String signedHeaderKeys = signedHeaders.stream()
+                .filter(h -> h != null && !h.isEmpty())
+                .collect(Collectors.joining(JOINER));
         final String canonicalRequest = method + RETURN +
                 SdkHttpUtils.urlEncode(uri, true) + RETURN +
                 queryParamsString(queryParams) + RETURN +
                 headersString.toString() + RETURN +
                 signedHeaderKeys + RETURN +
-                toBase16(hash(payload.or(EMPTY.getBytes(Charsets.UTF_8))));
+                toBase16(hash(payload.orElse(EMPTY.getBytes(StandardCharsets.UTF_8))));
         final String stringToSign = createStringToSign(canonicalRequest, now);
         final String signature = sign(stringToSign, now, credentials);
         final String autorizationHeader = AWS4_HMAC_SHA256_CREDENTIAL + credentials.getAWSAccessKeyId() + SLASH + getCredentialScope(now) +
@@ -142,18 +135,18 @@ public class AWSSigner {
                 SIGNATURE + signature;
 
         result.put(AUTHORIZATION, autorizationHeader);
-        return ImmutableMap.copyOf(result);
+        return Map.copyOf(result);
     }
 
-    private String queryParamsString(Multimap<String, String> queryParams) {
-        final ImmutableList.Builder<String> result = ImmutableList.builder();
-        for (Map.Entry<String, Collection<String>> param : new TreeMap<>(queryParams.asMap()).entrySet()) {
+    private String queryParamsString(Map<String, List<String>> queryParams) {
+        final List<String> result = new ArrayList<>();
+        for (Map.Entry<String, List<String>> param : new TreeMap<>(queryParams).entrySet()) {
             for (String value : param.getValue()) {
                 result.add(SdkHttpUtils.urlEncode(param.getKey(), false) + '=' + SdkHttpUtils.urlEncode(value, false));
             }
         }
 
-        return AMPERSAND_JOINER.join(result.build());
+        return result.stream().collect(Collectors.joining(AMPERSAND_JOINER));
     }
 
     private Optional<String> headerAsString(Map.Entry<String, Object> header, String method) {
@@ -162,7 +155,7 @@ public class AWSSigner {
             // incorrectly treat a non-POST with `Content-Length: 0` as if the header were empty (`Content-Length:`).
             //   By not signing the Content-Length header, we make sure the calculated signature is acceptable
             // for both older and newer AWS ES domains: the newer domains have this bug fixed.
-            return Optional.absent();
+            return Optional.empty();
         }
         return Optional.of(header.getKey().toLowerCase() + ':' + header.getValue());
     }
@@ -175,7 +168,7 @@ public class AWSSigner {
         return AWS4_HMAC_SHA256 +
                 now.format(BASIC_TIME_FORMAT) + RETURN +
                 getCredentialScope(now) + RETURN +
-                toBase16(hash(canonicalRequest.getBytes(Charsets.UTF_8)));
+                toBase16(hash(canonicalRequest.getBytes(StandardCharsets.UTF_8)));
     }
 
     private String getCredentialScope(LocalDateTime now) {
@@ -188,7 +181,8 @@ public class AWSSigner {
             md.update(payload);
             return md.digest();
         } catch (NoSuchAlgorithmException e) {
-            throw Throwables.propagate(e);
+            System.err.println(e.getMessage());
+            return "".getBytes(StandardCharsets.UTF_8);
         }
     }
 
@@ -202,7 +196,7 @@ public class AWSSigner {
     }
 
     private byte[] getSignatureKey(LocalDateTime now, AWSCredentials credentials) {
-        final byte[] kSecret = (AWS4 + credentials.getAWSSecretKey()).getBytes(Charsets.UTF_8);
+        final byte[] kSecret = (AWS4 + credentials.getAWSSecretKey()).getBytes(StandardCharsets.UTF_8);
         final byte[] kDate = hmacSHA256(now.format(BASIC_ISO_DATE), kSecret);
         final byte[] kRegion = hmacSHA256(region, kDate);
         final byte[] kService = hmacSHA256(service, kRegion);
@@ -213,9 +207,10 @@ public class AWSSigner {
         try {
             final Mac mac = Mac.getInstance(HMAC_SHA256);
             mac.init(new SecretKeySpec(key, HMAC_SHA256));
-            return mac.doFinal(data.getBytes(Charsets.UTF_8));
+            return mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-            throw Throwables.propagate(e);
+            System.err.println(e.getMessage());
+            return "".getBytes(StandardCharsets.UTF_8);
         }
     }
 }

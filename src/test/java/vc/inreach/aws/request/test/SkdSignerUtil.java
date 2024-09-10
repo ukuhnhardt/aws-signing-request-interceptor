@@ -1,18 +1,14 @@
 package vc.inreach.aws.request.test;
+
 import com.amazonaws.DefaultRequest;
 import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.http.HttpMethodName;
 import com.amazonaws.util.StringInputStream;
-import com.google.common.collect.Multimap;
 
 import java.lang.reflect.Method;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 /**
  * Test utility used to generate a AWS V4 Signature using {@link com.amazonaws.auth.AWS4Signer}.  This is needed in cases where the
  * the AWS Signing Test Suite (http://docs.aws.amazon.com/general/latest/gr/signature-v4-test-suite.html) does not include
@@ -68,7 +64,7 @@ public class SkdSignerUtil {
         private String body = "";
         private String httpMethod;
         private Map<String, Object> headers;
-        private Multimap<String, String> queryParams;
+        private Map<String, List<String>> queryParams;
         private AWSCredentialsProvider credentialsProvider;
 
         public String getServiceName() {
@@ -127,10 +123,10 @@ public class SkdSignerUtil {
             this.headers = headers;
             return this;
         }
-        public Multimap<String, String> getQueryParams() {
+        public Map<String, List<String>> getQueryParams() {
             return queryParams;
         }
-        public Request setQueryParams(Multimap<String, String> queryParams) {
+        public Request setQueryParams(Map<String, List<String>> queryParams) {
             this.queryParams = queryParams;
             return this;
         }
